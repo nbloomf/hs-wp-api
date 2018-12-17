@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Web/Api/WordPress/Monad</title>
+  <style type="text/css">
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <style type="text/css">
+a.sourceLine { display: inline-block; line-height: 1.25; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; position: absolute; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource a.sourceLine
+  { position: relative; }
+pre.numberSource a.sourceLine:empty
+  { position: absolute; }
+pre.numberSource a.sourceLine::before
+  { content: attr(data-line-number);
+    position: absolute; left: -5em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
+@media screen {
+a.sourceLine::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="style.css">
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header>
+<h1 class="title">Web/Api/WordPress/Monad</h1>
+</header>
+<p>In this module we define the <code>WordPressClient</code> class and its core functions, the <code>WordPressT</code> monad transformer, and some auxiliary types. It is not necessary to understand all the details of this module just to <em>use</em> the library, but it certainly helps, and the patterns here can be applied in other situations.</p>
+<h2 id="contents">Contents</h2>
+<ul>
+<li><a href="#imports-and-exports">Imports and Exports</a></li>
+<li><a href="#wordpresst">WordPressT</a>: A concrete monad transformer.</li>
+<li><a href="#wordpressclient">WordPressClient</a>: An interface for monad transformer stacks including <code>WordPressT</code>.</li>
+<li><a href="#session-configuration">Session Configuration</a></li>
+<li><a href="#session-execution">Session Execution</a></li>
+</ul>
+<h2 id="imports-and-exports">Imports and Exports</h2>
+<p>This section is just bookkeeping information the compiler requires to be at the top of the module. You can safely ignore it. Do note that all names are explicitly imported or qualified, to make it easier to see where they come from.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="ot">{-# LANGUAGE Rank2Types #-}</span></a>
+<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="kw">module</span> <span class="dt">Web.Api.WordPress.Monad</span> <span class="kw">where</span></a>
+<a class="sourceLine" id="cb1-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb1-4" data-line-number="4"><span class="kw">import</span> <span class="dt">Control.Exception</span></a>
+<a class="sourceLine" id="cb1-5" data-line-number="5">  ( <span class="dt">IOException</span> )</a>
+<a class="sourceLine" id="cb1-6" data-line-number="6"><span class="kw">import</span> <span class="dt">Control.Monad</span></a>
+<a class="sourceLine" id="cb1-7" data-line-number="7">  ( ap )</a>
+<a class="sourceLine" id="cb1-8" data-line-number="8"><span class="kw">import</span> <span class="dt">Control.Monad.Trans.Class</span></a>
+<a class="sourceLine" id="cb1-9" data-line-number="9">  ( <span class="dt">MonadTrans</span>(<span class="fu">..</span>) )</a>
+<a class="sourceLine" id="cb1-10" data-line-number="10"><span class="kw">import</span> <span class="dt">Control.Monad.Trans.Identity</span></a>
+<a class="sourceLine" id="cb1-11" data-line-number="11">  ( <span class="dt">IdentityT</span>(<span class="fu">..</span>) )</a>
+<a class="sourceLine" id="cb1-12" data-line-number="12"><span class="kw">import</span> <span class="dt">Data.Aeson</span></a>
+<a class="sourceLine" id="cb1-13" data-line-number="13">  ( <span class="dt">Value</span>(), <span class="dt">FromJSON</span> )</a>
+<a class="sourceLine" id="cb1-14" data-line-number="14"><span class="kw">import</span> <span class="dt">Data.ByteString.Lazy</span></a>
+<a class="sourceLine" id="cb1-15" data-line-number="15">  ( <span class="dt">ByteString</span> )</a>
+<a class="sourceLine" id="cb1-16" data-line-number="16"><span class="kw">import</span> <span class="dt">Data.Text</span></a>
+<a class="sourceLine" id="cb1-17" data-line-number="17">  ( <span class="dt">Text</span> )</a>
+<a class="sourceLine" id="cb1-18" data-line-number="18"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Network.HTTP.Client</span> <span class="kw">as</span> <span class="dt">N</span></a>
+<a class="sourceLine" id="cb1-19" data-line-number="19">  ( <span class="dt">HttpException</span>(<span class="fu">..</span>), <span class="dt">HttpExceptionContent</span>(<span class="fu">..</span>) )</a>
+<a class="sourceLine" id="cb1-20" data-line-number="20"><span class="kw">import</span> <span class="dt">System.IO</span></a>
+<a class="sourceLine" id="cb1-21" data-line-number="21">  ( <span class="dt">Handle</span> )</a>
+<a class="sourceLine" id="cb1-22" data-line-number="22"></a>
+<a class="sourceLine" id="cb1-23" data-line-number="23"><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Control.Monad.Script.Http</span> <span class="kw">as</span> <span class="dt">Http</span></a></code></pre></div>
+<h2 id="wordpresst"><code>WordPressT</code></h2>
+<p>Interacting with an HTTP API is fundamentally sequential, and an interactive <em>session</em> is fundamentally stateful. The basic functional pattern for building sequential, stateful interactions is to bundle the side effects we want to use in a <em>monad</em>.</p>
+<p>Anytime we have a monad, a natural question is whether it can be turned into a monad <em>transformer</em>. This is a much more powerful abstraction that allows consumers of the monadic interface to specify some side effects of their own without requiring support from us, the library author. For example, this makes it simple to combine two or more otherwise independent API clients in a single program in a principled and modular way.</p>
+<p>With this in mind, we will implement our WordPress API client as a monad transformer called <code>WordPressT</code>.</p>
+<p>The <code>WordPressT</code> transformer is a specialization of the <code>HttpT</code> transformer, which itself is a specialization of the <code>ScriptT</code> transformer. Each of these generalization steps contributes something to the library.</p>
+<p><code>ScriptT</code> is a plain unrolled stack of error, reader, writer, state, and prompt transformers. Each layer in this stack gives us some principled side effects:</p>
+<ul>
+<li><em>Error</em> gives us the ability to short-circuit a computation with a typed, semantic error.</li>
+<li><em>Writer</em> gives us a write-only state, used for the interaction log.</li>
+<li><em>Reader</em> gives us a read-only state, used for configuration.</li>
+<li><em>State</em> gives us a mutable state, to be used only as a last resort when reader is not appropriate.</li>
+<li><em>Prompt</em> is probably the least familiar of the bunch, even among FPers. Prompt is a kind of limited continuation monad. It gives us the ability to define certain side effects of our choosing (like network or filesystem access) as pure values which are <em>interpreted</em> in some effect monad. Moreover, the choice of effect monad can be deferred to the <em>caller</em> of the value, rather than the <em>definer</em>. This allows us to mock out <code>IO</code> interactions for unit testing.</li>
+</ul>
+<p><code>HttpT</code> specializes <code>ScriptT</code> with extra functions for running generic HTTP sessions.</p>
+<p><code>WordPressT</code> further specializes <code>HttpT</code> with functions and types specific to the WordPress API. It is defined as a wrapper around <code>HttpT</code> as follows.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="co">-- | A WordPress REST API interaction returning a value of type @a@,</span></a>
+<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="co">--   with effects taking place in the monad @eff@.</span></a>
+<a class="sourceLine" id="cb2-3" data-line-number="3"><span class="kw">data</span> <span class="dt">WordPressT</span> eff a</a>
+<a class="sourceLine" id="cb2-4" data-line-number="4">  <span class="fu">=</span> <span class="dt">WPT</span> {<span class="ot"> unWPT ::</span> <span class="dt">Http.HttpT</span> <span class="dt">WPError</span> <span class="dt">WPEnv</span> <span class="dt">WPLog</span> <span class="dt">WPState</span> <span class="dt">WPAct</span> eff a }</a></code></pre></div>
+<p>Note that <code>HttpT</code> has five type parameters for the error, reader, writer, state, and prompt types, which <code>WordPressT</code> fixes. The details of these types are covered in the section on <a href="#session-configuration">session configuration</a>. Now <code>WordPressT</code> inherits functor, applicative, monad, and transformer instances from <code>HttpT</code>.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">WordPressT</span> m) <span class="kw">where</span></a>
+<a class="sourceLine" id="cb3-2" data-line-number="2">  fmap f <span class="fu">=</span> <span class="dt">WPT</span> <span class="fu">.</span> fmap f <span class="fu">.</span> unWPT</a>
+<a class="sourceLine" id="cb3-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb3-4" data-line-number="4"><span class="kw">instance</span> <span class="dt">Applicative</span> (<span class="dt">WordPressT</span> m) <span class="kw">where</span></a>
+<a class="sourceLine" id="cb3-5" data-line-number="5">  pure <span class="fu">=</span> return</a>
+<a class="sourceLine" id="cb3-6" data-line-number="6">  (<span class="fu">&lt;*&gt;</span>) <span class="fu">=</span> ap</a>
+<a class="sourceLine" id="cb3-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb3-8" data-line-number="8"><span class="kw">instance</span> <span class="dt">Monad</span> (<span class="dt">WordPressT</span> m) <span class="kw">where</span></a>
+<a class="sourceLine" id="cb3-9" data-line-number="9">  return <span class="fu">=</span> <span class="dt">WPT</span> <span class="fu">.</span> return</a>
+<a class="sourceLine" id="cb3-10" data-line-number="10">  (<span class="dt">WPT</span> x) <span class="fu">&gt;&gt;=</span> f <span class="fu">=</span> <span class="dt">WPT</span> (x <span class="fu">&gt;&gt;=</span> (unWPT <span class="fu">.</span> f))</a>
+<a class="sourceLine" id="cb3-11" data-line-number="11"></a>
+<a class="sourceLine" id="cb3-12" data-line-number="12"><span class="kw">instance</span> <span class="dt">MonadTrans</span> <span class="dt">WordPressT</span> <span class="kw">where</span></a>
+<a class="sourceLine" id="cb3-13" data-line-number="13">  lift <span class="fu">=</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.liftHttpT</a></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="co">-- | `WordPressT` over `IdentityT`.</span></a>
+<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="kw">type</span> <span class="dt">WordPress</span> eff a <span class="fu">=</span> <span class="dt">WordPressT</span> (<span class="dt">IdentityT</span> eff) a</a></code></pre></div>
+<h2 id="wordpressclient"><code>WordPressClient</code></h2>
+<p>At this point we could proceed by defining WordPress API bindings directly in terms of <code>WordPressT</code>. Instead we’re going to introduce a little indirection now that will save users of this library a lot of effort later.</p>
+<p>In practice, we expect that <code>WordPressT</code> will be just one layer in a larger stack of monad transformers in an application. This being the case, if all the core functions of this library are hardcoded against the <code>WordPressT</code> type, users will be forced to sprinkle their code with explicit <code>lift</code>s to inject <code>WordPressT</code> values into their custom monads. This is verbose and brittle.</p>
+<p>What we want instead is to build the library against an interface representing monad stacks into which <code>WordPressT</code> values can be lifted.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="co">-- | The class of monad transformers which `WordPressT` values can</span></a>
+<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="co">--   be lifted into.</span></a>
+<a class="sourceLine" id="cb5-3" data-line-number="3"><span class="kw">class</span> <span class="dt">WordPressClient</span> t <span class="kw">where</span></a>
+<a class="sourceLine" id="cb5-4" data-line-number="4"><span class="ot">  liftWPT ::</span> <span class="dt">WordPressT</span> eff a <span class="ot">-&gt;</span> t eff a</a></code></pre></div>
+<p>Now <code>WordPressT</code> is trivially an instance of this class, and users can define their own instances as well.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="kw">instance</span> <span class="dt">WordPressClient</span> <span class="dt">WordPressT</span> <span class="kw">where</span></a>
+<a class="sourceLine" id="cb6-2" data-line-number="2">  liftWPT <span class="fu">=</span> id</a></code></pre></div>
+<p>The <code>HttpT</code> transformer provides a simple interface for manipulating the state, working with errors, and performing HTTP requests. Wrapped versions of these utilities will form the core of the <code>WordPressClient</code> interface.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb7-1" data-line-number="1">wpHPutStrLn</a>
+<a class="sourceLine" id="cb7-2" data-line-number="2"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb7-3" data-line-number="3">  <span class="ot">=&gt;</span> <span class="dt">Handle</span></a>
+<a class="sourceLine" id="cb7-4" data-line-number="4">  <span class="ot">-&gt;</span> <span class="dt">String</span></a>
+<a class="sourceLine" id="cb7-5" data-line-number="5">  <span class="ot">-&gt;</span> t eff ()</a>
+<a class="sourceLine" id="cb7-6" data-line-number="6">wpHPutStrLn h <span class="fu">=</span></a>
+<a class="sourceLine" id="cb7-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.hPutStrLn h</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb8-1" data-line-number="1">wpCatchError</a>
+<a class="sourceLine" id="cb8-2" data-line-number="2"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb8-3" data-line-number="3">  <span class="ot">=&gt;</span> <span class="dt">WordPressT</span> eff a <span class="co">-- ^ @WordPressT@ interaction that may fail with a @WPError@</span></a>
+<a class="sourceLine" id="cb8-4" data-line-number="4">  <span class="ot">-&gt;</span> (<span class="dt">WPError</span> <span class="ot">-&gt;</span> <span class="dt">WordPressT</span> eff a) <span class="co">-- ^ Error handler</span></a>
+<a class="sourceLine" id="cb8-5" data-line-number="5">  <span class="ot">-&gt;</span> t eff a</a>
+<a class="sourceLine" id="cb8-6" data-line-number="6">wpCatchError x h <span class="fu">=</span> liftWPT <span class="fu">$</span> <span class="dt">WPT</span> <span class="fu">$</span> Http.catchError (unWPT x) (unWPT <span class="fu">.</span> h)</a></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb9-1" data-line-number="1">wpThrowJsonError</a>
+<a class="sourceLine" id="cb9-2" data-line-number="2"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb9-3" data-line-number="3">  <span class="ot">=&gt;</span> <span class="dt">Http.JsonError</span></a>
+<a class="sourceLine" id="cb9-4" data-line-number="4">  <span class="ot">-&gt;</span> t eff a</a>
+<a class="sourceLine" id="cb9-5" data-line-number="5">wpThrowJsonError <span class="fu">=</span></a>
+<a class="sourceLine" id="cb9-6" data-line-number="6">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.throwJsonError</a></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="co">-- | Capures `HttpException`s.</span></a>
+<a class="sourceLine" id="cb10-2" data-line-number="2">wpHttpGet</a>
+<a class="sourceLine" id="cb10-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb10-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">Http.Url</span></a>
+<a class="sourceLine" id="cb10-5" data-line-number="5">  <span class="ot">-&gt;</span> t m <span class="dt">Http.HttpResponse</span></a>
+<a class="sourceLine" id="cb10-6" data-line-number="6">wpHttpGet <span class="fu">=</span></a>
+<a class="sourceLine" id="cb10-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.httpGet</a></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="co">-- | Does not write request or response info to the log, except</span></a>
+<a class="sourceLine" id="cb11-2" data-line-number="2"><span class="co">--   to note that a request occurred. Capures `HttpException`s.</span></a>
+<a class="sourceLine" id="cb11-3" data-line-number="3">wpHttpSilentGet</a>
+<a class="sourceLine" id="cb11-4" data-line-number="4"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb11-5" data-line-number="5">  <span class="ot">=&gt;</span> <span class="dt">Http.Url</span></a>
+<a class="sourceLine" id="cb11-6" data-line-number="6">  <span class="ot">-&gt;</span> t eff <span class="dt">Http.HttpResponse</span></a>
+<a class="sourceLine" id="cb11-7" data-line-number="7">wpHttpSilentGet <span class="fu">=</span></a>
+<a class="sourceLine" id="cb11-8" data-line-number="8">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.httpSilentGet</a></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb12-1" data-line-number="1"><span class="co">-- | Get a computed value from the environment</span></a>
+<a class="sourceLine" id="cb12-2" data-line-number="2">wpFromEnv</a>
+<a class="sourceLine" id="cb12-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb12-4" data-line-number="4">  <span class="ot">=&gt;</span> (<span class="dt">Http.R</span> <span class="dt">WPError</span> <span class="dt">WPLog</span> <span class="dt">WPEnv</span> <span class="ot">-&gt;</span> a)</a>
+<a class="sourceLine" id="cb12-5" data-line-number="5">  <span class="ot">-&gt;</span> t eff a</a>
+<a class="sourceLine" id="cb12-6" data-line-number="6">wpFromEnv <span class="fu">=</span></a>
+<a class="sourceLine" id="cb12-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.reader</a></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb13-1" data-line-number="1">wpThrowHttpException</a>
+<a class="sourceLine" id="cb13-2" data-line-number="2"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb13-3" data-line-number="3">  <span class="ot">=&gt;</span> <span class="dt">N.HttpException</span></a>
+<a class="sourceLine" id="cb13-4" data-line-number="4">  <span class="ot">-&gt;</span> t eff a</a>
+<a class="sourceLine" id="cb13-5" data-line-number="5">wpThrowHttpException <span class="fu">=</span></a>
+<a class="sourceLine" id="cb13-6" data-line-number="6">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.throwHttpException</a></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb14-1" data-line-number="1">wpThrowIOException</a>
+<a class="sourceLine" id="cb14-2" data-line-number="2"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb14-3" data-line-number="3">  <span class="ot">=&gt;</span> <span class="dt">IOException</span></a>
+<a class="sourceLine" id="cb14-4" data-line-number="4">  <span class="ot">-&gt;</span> t m a</a>
+<a class="sourceLine" id="cb14-5" data-line-number="5">wpThrowIOException <span class="fu">=</span></a>
+<a class="sourceLine" id="cb14-6" data-line-number="6">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.throwIOException</a></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb15-1" data-line-number="1"><span class="co">-- | Get a computed value from the state</span></a>
+<a class="sourceLine" id="cb15-2" data-line-number="2">wpFromState</a>
+<a class="sourceLine" id="cb15-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb15-4" data-line-number="4">  <span class="ot">=&gt;</span> (<span class="dt">Http.S</span> <span class="dt">WPState</span> <span class="ot">-&gt;</span> a)</a>
+<a class="sourceLine" id="cb15-5" data-line-number="5">  <span class="ot">-&gt;</span> t m a</a>
+<a class="sourceLine" id="cb15-6" data-line-number="6">wpFromState <span class="fu">=</span></a>
+<a class="sourceLine" id="cb15-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.gets</a></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb16-1" data-line-number="1"><span class="co">-- | Mutate the state</span></a>
+<a class="sourceLine" id="cb16-2" data-line-number="2">wpModifyState</a>
+<a class="sourceLine" id="cb16-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb16-4" data-line-number="4">  <span class="ot">=&gt;</span> (<span class="dt">Http.S</span> <span class="dt">WPState</span> <span class="ot">-&gt;</span> <span class="dt">Http.S</span> <span class="dt">WPState</span>)</a>
+<a class="sourceLine" id="cb16-5" data-line-number="5">  <span class="ot">-&gt;</span> t m ()</a>
+<a class="sourceLine" id="cb16-6" data-line-number="6">wpModifyState <span class="fu">=</span></a>
+<a class="sourceLine" id="cb16-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.modify</a></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb17-1" data-line-number="1"><span class="co">-- | Write a comment to the log.</span></a>
+<a class="sourceLine" id="cb17-2" data-line-number="2">wpComment</a>
+<a class="sourceLine" id="cb17-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb17-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">String</span></a>
+<a class="sourceLine" id="cb17-5" data-line-number="5">  <span class="ot">-&gt;</span> t m ()</a>
+<a class="sourceLine" id="cb17-6" data-line-number="6">wpComment <span class="fu">=</span></a>
+<a class="sourceLine" id="cb17-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.comment</a></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb18-1" data-line-number="1">wpWait</a>
+<a class="sourceLine" id="cb18-2" data-line-number="2"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb18-3" data-line-number="3">  <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="co">-- ^ In milliseconds</span></a>
+<a class="sourceLine" id="cb18-4" data-line-number="4">  <span class="ot">-&gt;</span> t m ()</a>
+<a class="sourceLine" id="cb18-5" data-line-number="5">wpWait <span class="fu">=</span></a>
+<a class="sourceLine" id="cb18-6" data-line-number="6">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.wait</a></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb19-1" data-line-number="1">wpThrowError</a>
+<a class="sourceLine" id="cb19-2" data-line-number="2"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb19-3" data-line-number="3">  <span class="ot">=&gt;</span> <span class="dt">WPError</span></a>
+<a class="sourceLine" id="cb19-4" data-line-number="4">  <span class="ot">-&gt;</span> t m a</a>
+<a class="sourceLine" id="cb19-5" data-line-number="5">wpThrowError <span class="fu">=</span></a>
+<a class="sourceLine" id="cb19-6" data-line-number="6">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.throwError</a></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb20-1" data-line-number="1"><span class="co">-- | Rethrows other error types</span></a>
+<a class="sourceLine" id="cb20-2" data-line-number="2">wpCatchJsonError</a>
+<a class="sourceLine" id="cb20-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb20-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">WordPressT</span> m a</a>
+<a class="sourceLine" id="cb20-5" data-line-number="5">  <span class="ot">-&gt;</span> (<span class="dt">Http.JsonError</span> <span class="ot">-&gt;</span> <span class="dt">WordPressT</span> m a)</a>
+<a class="sourceLine" id="cb20-6" data-line-number="6">  <span class="ot">-&gt;</span> t m a</a>
+<a class="sourceLine" id="cb20-7" data-line-number="7">wpCatchJsonError x h <span class="fu">=</span></a>
+<a class="sourceLine" id="cb20-8" data-line-number="8">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">$</span> Http.catchJsonError (unWPT x) (unWPT <span class="fu">.</span> h)</a></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb21-1" data-line-number="1"><span class="co">-- | Rethrows other error types</span></a>
+<a class="sourceLine" id="cb21-2" data-line-number="2">wpCatchHttpException</a>
+<a class="sourceLine" id="cb21-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb21-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">WordPressT</span> eff a</a>
+<a class="sourceLine" id="cb21-5" data-line-number="5">  <span class="ot">-&gt;</span> (<span class="dt">N.HttpException</span> <span class="ot">-&gt;</span> <span class="dt">WordPressT</span> eff a)</a>
+<a class="sourceLine" id="cb21-6" data-line-number="6">  <span class="ot">-&gt;</span> t eff a</a>
+<a class="sourceLine" id="cb21-7" data-line-number="7">wpCatchHttpException x h <span class="fu">=</span></a>
+<a class="sourceLine" id="cb21-8" data-line-number="8">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">$</span> Http.catchHttpException (unWPT x) (unWPT <span class="fu">.</span> h)</a></code></pre></div>
+<div class="sourceCode" id="cb22"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb22-1" data-line-number="1"><span class="co">-- | Rethrows other error types</span></a>
+<a class="sourceLine" id="cb22-2" data-line-number="2">wpCatchIOException</a>
+<a class="sourceLine" id="cb22-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb22-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">WordPressT</span> eff a</a>
+<a class="sourceLine" id="cb22-5" data-line-number="5">  <span class="ot">-&gt;</span> (<span class="dt">IOException</span> <span class="ot">-&gt;</span> <span class="dt">WordPressT</span> eff a)</a>
+<a class="sourceLine" id="cb22-6" data-line-number="6">  <span class="ot">-&gt;</span> t eff a</a>
+<a class="sourceLine" id="cb22-7" data-line-number="7">wpCatchIOException x h <span class="fu">=</span></a>
+<a class="sourceLine" id="cb22-8" data-line-number="8">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">$</span> Http.catchIOException (unWPT x) (unWPT <span class="fu">.</span> h)</a></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb23-1" data-line-number="1"><span class="co">-- | May throw a `JsonError`.</span></a>
+<a class="sourceLine" id="cb23-2" data-line-number="2">wpParseJson</a>
+<a class="sourceLine" id="cb23-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb23-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">ByteString</span></a>
+<a class="sourceLine" id="cb23-5" data-line-number="5">  <span class="ot">-&gt;</span> t eff <span class="dt">Value</span></a>
+<a class="sourceLine" id="cb23-6" data-line-number="6">wpParseJson <span class="fu">=</span></a>
+<a class="sourceLine" id="cb23-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.parseJson</a></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb24-1" data-line-number="1"><span class="co">-- | May throw a `JsonError`.</span></a>
+<a class="sourceLine" id="cb24-2" data-line-number="2">wpLookupKeyJson</a>
+<a class="sourceLine" id="cb24-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t)</a>
+<a class="sourceLine" id="cb24-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">Text</span></a>
+<a class="sourceLine" id="cb24-5" data-line-number="5">  <span class="ot">-&gt;</span> <span class="dt">Value</span></a>
+<a class="sourceLine" id="cb24-6" data-line-number="6">  <span class="ot">-&gt;</span> t eff <span class="dt">Value</span></a>
+<a class="sourceLine" id="cb24-7" data-line-number="7">wpLookupKeyJson key <span class="fu">=</span></a>
+<a class="sourceLine" id="cb24-8" data-line-number="8">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.lookupKeyJson key</a></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb25-1" data-line-number="1"><span class="co">-- | May throw a `JsonError`.</span></a>
+<a class="sourceLine" id="cb25-2" data-line-number="2">wpConstructFromJson</a>
+<a class="sourceLine" id="cb25-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">WordPressClient</span> t, <span class="dt">FromJSON</span> a)</a>
+<a class="sourceLine" id="cb25-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">Value</span></a>
+<a class="sourceLine" id="cb25-5" data-line-number="5">  <span class="ot">-&gt;</span> t eff a</a>
+<a class="sourceLine" id="cb25-6" data-line-number="6">wpConstructFromJson <span class="fu">=</span></a>
+<a class="sourceLine" id="cb25-7" data-line-number="7">  liftWPT <span class="fu">.</span> <span class="dt">WPT</span> <span class="fu">.</span> Http.constructFromJson</a></code></pre></div>
+<h2 id="session-configuration">Session Configuration</h2>
+<div class="sourceCode" id="cb26"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb26-1" data-line-number="1"><span class="co">-- | Errors specific to WordPress API interactions.</span></a>
+<a class="sourceLine" id="cb26-2" data-line-number="2"><span class="kw">data</span> <span class="dt">WPError</span> <span class="fu">=</span> <span class="dt">WPError</span></a></code></pre></div>
+<div class="sourceCode" id="cb27"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb27-1" data-line-number="1"><span class="co">-- | A read-only environment for WordPress API interactions.</span></a>
+<a class="sourceLine" id="cb27-2" data-line-number="2"><span class="kw">data</span> <span class="dt">WPEnv</span> <span class="fu">=</span> <span class="dt">WPEnv</span></a></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb28-1" data-line-number="1"><span class="kw">data</span> <span class="dt">WPLog</span> <span class="fu">=</span> <span class="dt">WPLog</span></a></code></pre></div>
+<div class="sourceCode" id="cb29"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb29-1" data-line-number="1"><span class="kw">data</span> <span class="dt">WPState</span> <span class="fu">=</span> <span class="dt">WPState</span></a></code></pre></div>
+<div class="sourceCode" id="cb30"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb30-1" data-line-number="1"><span class="kw">data</span> <span class="dt">WPAct</span> a <span class="fu">=</span> <span class="dt">WPAct</span> a</a></code></pre></div>
+<div class="sourceCode" id="cb31"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb31-1" data-line-number="1"><span class="kw">data</span> <span class="dt">WordPressConfig</span> eff <span class="fu">=</span> <span class="dt">WordPressConfig</span></a>
+<a class="sourceLine" id="cb31-2" data-line-number="2">  {<span class="ot"> _initState ::</span> <span class="dt">Http.S</span> <span class="dt">WPState</span></a>
+<a class="sourceLine" id="cb31-3" data-line-number="3">  ,<span class="ot"> _env ::</span> <span class="dt">Http.R</span> <span class="dt">WPError</span> <span class="dt">WPLog</span> <span class="dt">WPEnv</span></a>
+<a class="sourceLine" id="cb31-4" data-line-number="4">  ,<span class="ot"> _eval ::</span> forall a<span class="fu">.</span> <span class="dt">Http.P</span> <span class="dt">WPAct</span> a <span class="ot">-&gt;</span> eff a</a>
+<a class="sourceLine" id="cb31-5" data-line-number="5">  }</a></code></pre></div>
+<h2 id="session-execution">Session Execution</h2>
+<div class="sourceCode" id="cb32"><pre class="sourceCode literate haskell"><code class="sourceCode haskell"><a class="sourceLine" id="cb32-1" data-line-number="1"><span class="co">-- | Execute a `WordPressT` session.</span></a>
+<a class="sourceLine" id="cb32-2" data-line-number="2">execWordPressT</a>
+<a class="sourceLine" id="cb32-3" data-line-number="3"><span class="ot">  ::</span> (<span class="dt">Monad</span> eff, <span class="dt">Monad</span> (m eff))</a>
+<a class="sourceLine" id="cb32-4" data-line-number="4">  <span class="ot">=&gt;</span> <span class="dt">WordPressConfig</span> eff</a>
+<a class="sourceLine" id="cb32-5" data-line-number="5">  <span class="ot">-&gt;</span> (forall u<span class="fu">.</span> eff u <span class="ot">-&gt;</span> m eff u) <span class="co">-- ^ Lift effects to the inner monad</span></a>
+<a class="sourceLine" id="cb32-6" data-line-number="6">  <span class="ot">-&gt;</span> <span class="dt">WordPressT</span> (m eff) a</a>
+<a class="sourceLine" id="cb32-7" data-line-number="7">  <span class="ot">-&gt;</span> m eff (<span class="dt">Either</span> (<span class="dt">Http.E</span> <span class="dt">WPError</span>) a, <span class="dt">Http.S</span> <span class="dt">WPState</span>, <span class="dt">Http.W</span> <span class="dt">WPError</span> <span class="dt">WPLog</span>)</a>
+<a class="sourceLine" id="cb32-8" data-line-number="8">execWordPressT config lift <span class="fu">=</span> Http.execHttpTM</a>
+<a class="sourceLine" id="cb32-9" data-line-number="9">  (_initState config) (_env config) (_eval config) lift <span class="fu">.</span> unWPT</a></code></pre></div>
+<p>– | For testing with QuickCheck. checkWebDriverT :: (Monad eff, Monad (m eff)) =&gt; WebDriverConfig eff -&gt; (forall u. eff u -&gt; m eff u) – ^ Lift effects to the inner monad -&gt; (m eff (Either (Http.E WDError) t, Http.S WDState, Http.W WDError WDLog) -&gt; IO q) – ^ Condense to <code>IO</code> -&gt; (q -&gt; Bool) – ^ Result check -&gt; WebDriverT (m eff) t -&gt; Property checkWebDriverT config lift cond check = Http.checkHttpTM (_initialState config) (_environment config) (_evaluator config) lift cond check . unWDT</p>
+</body>
+</html>
